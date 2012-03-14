@@ -1,0 +1,23 @@
+2012-03-14  Yuuichi Akagawa <Yuuichi.Akagawa@gmail.com>
+
+	* Unite USB_Host_Shield codes.
+	- USB_Host_Shield/ch9.h
+	- USB_Host_Shield/Max_LCD.cpp
+	- USB_Host_Shield/Max_LCD.h
+	- USB_Host_Shield/Max3421e.cpp
+	- USB_Host_Shield/Max3421e.h
+	- USB_Host_Shield/Max3421e_constants.h
+	- USB_Host_Shield/Usb.cpp
+	- USB_Host_Shield/Usb.h
+	- Remove USB_Host_Shield/circuit directory
+	- Remove USB_Host_Shield/demokit directory
+
+	* README.md : New
+
+2012-03-14  Kenichi Yoshida
+
+	* remove CapacitiveSense library
+
+2012-03-08  Kenichi Yoshida
+
+	* First commit
