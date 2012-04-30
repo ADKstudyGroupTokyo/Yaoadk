@@ -1,30 +1,36 @@
 /*
-	Copyright 2011 Niels Brouwers
+  Copyright 2012 ADK Study Group Tokyo
 
-	Licensed under the Apache License, Version 2.0 (the "License");
-	you may not use this file except in compliance with the License.
-	You may obtain a copy of the License at
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
 
-	   http://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
-	Unless required by applicable law or agreed to in writing, software
-	distributed under the License is distributed on an "AS IS" BASIS,
-	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	See the License for the specific language governing permissions and
-	limitations under the License.#include <string.h>
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+ -----------------------------------------------------------------------------------
+  Original Copyright 2011 Niels Brouwers
+
+  Changes: 
+    Fix for the Arduino IDE version compatibility.
+    Change max3421e driver to Circuit@Home's USB_Host_Shield_1
+ -----------------------------------------------------------------------------------
 */
 
-//Kenichi Yoshida
-//2012/02/08
-//ArduinoIDEのバージョンアップ時の注意
-//https://sites.google.com/site/mathrax2010/version_up_attention
-//「wiring.h」を、「wiring_private.h」に書き換え
-//#include "wiring.h"
-#include "wiring_private.h"
 
+#if defined(ARDUINO) && ARDUINO >= 100
+#include "Arduino.h"
+#else
+#include "WProgram.h"
+#endif
+//#include "wiring.h"
 #include "usb.h"
-#include "ch9.h"
-#include "max3421e.h"
+
 #include "HardwareSerial.h"
 
 #include <util/delay.h>
@@ -34,14 +40,14 @@ static uint8_t usb_task_state = USB_DETACHED_SUBSTATE_INITIALIZE;
 static usb_eventHandler * eventHandler = NULL;
 
 usb_device deviceTable[USB_NUMDEVICES + 1];
-
+MAX3421E max3421e;
 /**
  * Initialises the USB layer.
  */
 void USB::init()
 {
- 	max3421e_init();
-	max3421e_powerOn();
+// 	max3421e_init();
+	max3421e.powerOn();
 
 	uint8_t i;
 
@@ -152,17 +158,17 @@ int usb_dispatchPacket(uint8_t token, usb_endpoint * endpoint, unsigned int nakL
 		// Analyze transfer result.
 
 		// Launch the transfer.
-		max3421e_write(MAX_REG_HXFR, (token | endpoint->address));
+		max3421e.regWr(rHXFR, (token | endpoint->address));
 		rcode = 0xff;
 
 		// Wait for interrupt
 		while (timeout > millis())
 		{
-			tmpdata = max3421e_read(MAX_REG_HIRQ);
+			tmpdata = max3421e.regRd(rHIRQ);
 			if (tmpdata & bmHXFRDNIRQ)
 			{
 				// Clear the interrupt.
-				max3421e_write(MAX_REG_HIRQ, bmHXFRDNIRQ);
+				max3421e.regWr(rHIRQ, bmHXFRDNIRQ);
 
 				rcode = 0x00;
 				break;
@@ -176,7 +182,7 @@ int usb_dispatchPacket(uint8_t token, usb_endpoint * endpoint, unsigned int nakL
 		// Wait for HRSL
 		while (timeout > millis())
 		{
-			rcode = (max3421e_read(MAX_REG_HRSL) & 0x0f);
+			rcode = (max3421e.regRd(rHRSL) & 0x0f);
 			if (rcode != hrBUSY)
 				break;
 //			else
@@ -216,10 +222,10 @@ void USB::poll()
 	usb_deviceDescriptor deviceDescriptor;
 
 	// Poll the MAX3421E device.
-	max3421e_poll();
+	max3421e.Task();
 
 	/* modify USB task state if Vbus changed */
-	tmpdata = max3421e_getVbusState();
+	tmpdata = max3421e.getVbusState();
 
 	switch (tmpdata)
 	{
@@ -271,15 +277,15 @@ void USB::poll()
 
 	case USB_ATTACHED_SUBSTATE_RESET_DEVICE:
 		// Issue bus reset.
-		max3421e_write(MAX_REG_HCTL, bmBUSRST);
+		max3421e.regWr(rHCTL, bmBUSRST);
 		usb_task_state = USB_ATTACHED_SUBSTATE_WAIT_RESET_COMPLETE;
 		break;
 
 	case USB_ATTACHED_SUBSTATE_WAIT_RESET_COMPLETE:
-		if ((max3421e_read(MAX_REG_HCTL) & bmBUSRST) == 0)
+		if ((max3421e.regRd(rHCTL) & bmBUSRST) == 0)
 		{
-			tmpdata = max3421e_read(MAX_REG_MODE) | bmSOFKAENAB; //start SOF generation
-			max3421e_write(MAX_REG_MODE, tmpdata);
+			tmpdata = max3421e.regRd(rMODE) | bmSOFKAENAB; //start SOF generation
+			max3421e.regWr(rMODE, tmpdata);
 			//                  max3421e_regWr( rMODE, bmSOFKAENAB );
 			usb_task_state = USB_ATTACHED_SUBSTATE_WAIT_SOF;
 			delay = millis() + 20; //20ms wait after reset per USB spec
@@ -287,7 +293,7 @@ void USB::poll()
 		break;
 
 	case USB_ATTACHED_SUBSTATE_WAIT_SOF: //todo: change check order
-		if (max3421e_read(MAX_REG_HIRQ) & bmFRAMEIRQ)
+		if (max3421e.regRd(rHIRQ) & bmFRAMEIRQ)
 		{ //when first SOF received we can continue
 			if (delay < millis())
 			{ //20ms passed
@@ -424,10 +430,10 @@ int USB::read(usb_device * device, usb_endpoint * endpoint, uint16_t length, uin
 	unsigned int totalTransferred = 0;
 
 	// Set device address.
-	max3421e_write(MAX_REG_PERADDR, device->address);
+	max3421e.regWr(rPERADDR, device->address);
 
 	// Set toggle value.
-	max3421e_write(MAX_REG_HCTL, endpoint->receiveToggle);
+	max3421e.regWr(rHCTL, endpoint->receiveToggle);
 
 	while (1)
 	{
@@ -444,7 +450,7 @@ int USB::read(usb_device * device, usb_endpoint * endpoint, uint16_t length, uin
 		}
 
 		// Assert that the RCVDAVIRQ bit in register MAX_REG_HIRQ is set.
-		if ((max3421e_read(MAX_REG_HIRQ) & bmRCVDAVIRQ) == 0)
+		if ((max3421e.regRd(rHIRQ) & bmRCVDAVIRQ) == 0)
 		{
 //			serialPrintf("USB::read: toggle error? %d\n", rcode);
 
@@ -453,13 +459,13 @@ int USB::read(usb_device * device, usb_endpoint * endpoint, uint16_t length, uin
 		}
 
 		// Obtain the number of bytes in FIFO.
-		bytesRead = max3421e_read(MAX_REG_RCVBC);
-
+		bytesRead = max3421e.regRd(rRCVBC);
+                char *cdata = (char *)data;
 		// Read the data from the FIFO.
-		data = max3421e_readMultiple(MAX_REG_RCVFIFO, bytesRead, data);
+		cdata = max3421e.bytesRd(rRCVFIFO, bytesRead, cdata);
 
 		// Clear the interrupt to free the buffer.
-		max3421e_write(MAX_REG_HIRQ, bmRCVDAVIRQ);
+		max3421e.regWr(rHIRQ, bmRCVDAVIRQ);
 
 		totalTransferred += bytesRead;
 
@@ -468,7 +474,7 @@ int USB::read(usb_device * device, usb_endpoint * endpoint, uint16_t length, uin
 		if ((bytesRead < maxPacketSize) || (totalTransferred >= length))
 		{
 			// Remember the toggle value for the next transfer.
-			if (max3421e_read(MAX_REG_HRSL) & bmRCVTOGRD)
+			if (max3421e.regRd(rHRSL) & bmRCVTOGRD)
 				endpoint->receiveToggle = bmRCVTOG1;
 			else
 				endpoint->receiveToggle = bmRCVTOG0;
@@ -511,7 +517,7 @@ int USB::write(usb_device * device, usb_endpoint * endpoint, uint16_t length, ui
 	uint8_t rcode = 0, retry_count;
 
 	// Set device address.
-	max3421e_write(MAX_REG_PERADDR, device->address);
+	max3421e.regWr(rPERADDR, device->address);
 
 	// Local copy of the data pointer.
 	uint8_t * data_p = data;
@@ -527,7 +533,7 @@ int USB::write(usb_device * device, usb_endpoint * endpoint, uint16_t length, ui
 	// If maximum packet size is not set, return.
 	if (!maxPacketSize) return 0xFE;
 
-	max3421e_write(MAX_REG_HCTL, endpoint->sendToggle); //set toggle value
+	max3421e.regWr(rHCTL, endpoint->sendToggle); //set toggle value
 
 	while (bytes_left)
 	{
@@ -537,21 +543,21 @@ int USB::write(usb_device * device, usb_endpoint * endpoint, uint16_t length, ui
 		bytes_tosend = (bytes_left >= maxPacketSize) ? maxPacketSize : bytes_left;
 
 		// Filling output FIFO
-		max3421e_writeMultiple(MAX_REG_SNDFIFO, bytes_tosend, data_p);
+		max3421e.bytesWr(rSNDFIFO, bytes_tosend, (char *)data_p);
 
 		// Set number of bytes to send.
-		max3421e_write(MAX_REG_SNDBC, bytes_tosend);
+		max3421e.regWr(rSNDBC, bytes_tosend);
 
 		// Dispatch packet.
-		max3421e_write(MAX_REG_HXFR, (tokOUT | endpoint->address));
+		max3421e.regWr(rHXFR, (tokOUT | endpoint->address));
 
 		// Wait for completion.
-		while (!(max3421e_read(MAX_REG_HIRQ) & bmHXFRDNIRQ));
+		while (!(max3421e.regRd(rHIRQ) & bmHXFRDNIRQ));
 
 		// Clear IRQ.
-		max3421e_write(MAX_REG_HIRQ, bmHXFRDNIRQ);
+		max3421e.regWr(rHIRQ, bmHXFRDNIRQ);
 
-		rcode = (max3421e_read(MAX_REG_HRSL) & 0x0f);
+		rcode = (max3421e.regRd(rHRSL) & 0x0f);
 
 		while (rcode && (timeout > millis()))
 		{
@@ -576,25 +582,25 @@ int USB::write(usb_device * device, usb_endpoint * endpoint, uint16_t length, ui
 			}
 
 			// Process NAK according to Host out NAK bug.
-			max3421e_write(MAX_REG_SNDBC, 0);
-			max3421e_write(MAX_REG_SNDFIFO, *data_p);
-			max3421e_write(MAX_REG_SNDBC, bytes_tosend);
-			max3421e_write(MAX_REG_HXFR, (tokOUT | endpoint->address)); //dispatch packet
+			max3421e.regWr(rSNDBC, 0);
+			max3421e.regWr(rSNDFIFO, *data_p);
+			max3421e.regWr(rSNDBC, bytes_tosend);
+			max3421e.regWr(rHXFR, (tokOUT | endpoint->address)); //dispatch packet
 
 			// Wait for the completion interrupt.
-			while (!(max3421e_read(MAX_REG_HIRQ) & bmHXFRDNIRQ));
+			while (!(max3421e.regRd(rHIRQ) & bmHXFRDNIRQ));
 
 			// Clear interrupt.
-			max3421e_write(MAX_REG_HIRQ, bmHXFRDNIRQ);
+			max3421e.regWr(rHIRQ, bmHXFRDNIRQ);
 
-			rcode = (max3421e_read(MAX_REG_HRSL) & 0x0f);
+			rcode = (max3421e.regRd(rHRSL) & 0x0f);
 		}
 
 		bytes_left -= bytes_tosend;
 		data_p += bytes_tosend;
 	}
 
-	endpoint->sendToggle = (max3421e_read(MAX_REG_HRSL) & bmSNDTOGRD) ? bmSNDTOG1 : bmSNDTOG0; //update toggle
+	endpoint->sendToggle = (max3421e.regRd(rHRSL) & bmSNDTOGRD) ? bmSNDTOG1 : bmSNDTOG0; //update toggle
 
 	// Should be 0 in all cases.
 	return (rcode);
@@ -665,7 +671,7 @@ int USB::controlRequest(
 	usb_setupPacket setup_pkt;
 
 	// Set device address.
-	max3421e_write(MAX_REG_PERADDR, device->address);
+	max3421e.regWr(rPERADDR, device->address);
 
 	if (requestType & 0x80)
 		direction = true; //determine request direction
@@ -678,7 +684,7 @@ int USB::controlRequest(
 	setup_pkt.wLength = length;
 
 	// Write setup packet to the FIFO and dispatch
-	max3421e_writeMultiple(MAX_REG_SUDFIFO, 8, (uint8_t *) &setup_pkt);
+	max3421e.bytesWr(rSUDFIFO, 8, (char *) &setup_pkt);
 	rcode = usb_dispatchPacket(tokSETUP, &(device->control), USB_NAK_LIMIT);
 
 	// Print error in case of failure.

@@ -1,31 +1,38 @@
 /*
-	Copyright 2011 Niels Brouwers
+  Copyright 2012 ADK Study Group Tokyo
 
-	Licensed under the Apache License, Version 2.0 (the "License");
-	you may not use this file except in compliance with the License.
-	You may obtain a copy of the License at
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
 
-	   http://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
-	Unless required by applicable law or agreed to in writing, software
-	distributed under the License is distributed on an "AS IS" BASIS,
-	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-	See the License for the specific language governing permissions and
-	limitations under the License.#include <string.h>
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+ -----------------------------------------------------------------------------------
+  Original Copyright 2011 Niels Brouwers
+
+  Changes: 
+    Fix for the Arduino IDE version compatibility.
+    Change max3421e driver to Circuit@Home's USB_Host_Shield_1
+ -----------------------------------------------------------------------------------
 */
 
 #ifndef __adb_h__
 #define __adb_h__
-//Kenichi Yoshida
-//2012/02/08
-//ArduinoIDEのバージョンアップ時の注意
-//https://sites.google.com/site/mathrax2010/version_up_attention
-//「wiring.h」を、「wiring_private.h」に書き換え
 //#include "wiring.h"
-#include "wiring_private.h"
-
-#include <usb.h>
-#include <ch9.h>
+#if defined(ARDUINO) && ARDUINO >= 100
+#include "Arduino.h"
+#else
+#include "WProgram.h"
+#endif
+#include "Max3421e_constants.h"
+#include "usb.h"
+#include "ch9.h"
 
 typedef void(usb_eventHandler)(usb_device * device, usb_eventType event);
 

@@ -1,384 +1,329 @@
 /*
-Copyright 2011 Niels Brouwers
+  Copyright 2012 ADK Study Group Tokyo
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
 
-   http://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.#include <string.h>
-*/
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
 
-/**
+  Changes: 
+    Fix for the Arduino IDE version compatibility.
+    Supoort ADK boards
+      Google ADK compatible boards(RT-ADK, Arduino MegaADK)
+      Duemilanove/UNO + Sparkfun USB Host Shield(DEV-09947)
+      Pro mini + USB Host Shield for Arduino Pro Mini
+
+ -----------------------------------------------------------------------------------
+ * Copyright 2009-2011 Oleg Mazurov, Circuits At Home, http://www.circuitsathome.com
+ * MAX3421E USB host controller support
  *
- * Library for the max3421e USB host controller shield produced by circuitsathome and Sparkfun.
- * This is a low-level interface that provides access to the internal registers and polls the
- * controller for state changes.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. Neither the name of the authors nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
  *
- * This library is based on work done by Oleg Masurov, but has been ported to C and heavily
- * restructured. Control over the GPIO pins has been stripped.
- *
- * Note that the current incarnation of this library only supports the Arduino Mega with a
- * hardware mod to rewire the MISO, MOSI, and CLK SPI pins.
- *
- * http://www.circuitsathome.com/
+ * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
  */
 
-#include "../SPI/SPI.h"
-//Kenichi Yoshida
-//2012/02/08
-//ArduinoIDEのバージョンアップ時の注意
-//https://sites.google.com/site/mathrax2010/version_up_attention
-//「wiring.h」を、「wiring_private.h」に書き換え
-//#include "wiring.h"
-#include "wiring_private.h"
+/* MAX3421E USB host controller support */
 
-#include "max3421e.h"
-#include "HardwareSerial.h"
+#include "Max3421e.h"
+// #include "Max3421e_constants.h"
 
+static byte vbusState;
 
-static uint8_t vbusState;
+/* Functions    */
 
-/*
- * Initialises the max3421e host shield. Initialises the SPI bus and sets the required pin directions.
- * Must be called before powerOn.
- */
-void max3421e_init()
+void MAX3421E::pinInit(void)
 {
-
-	SPI.begin();
-
-	pinMode(PIN_MAX_INT, INPUT);
-	pinMode(PIN_MAX_GPX, INPUT);
-	pinMode(PIN_MAX_SS, OUTPUT);
-	pinMode(PIN_MAX_RESET, OUTPUT);
-
-/*
-#if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
-
-	// Set MAX_INT and MAX_GPX pins to input mode.
-	DDRH &= ~(0x40 | 0x20);
-
-	// Set SPI !SS pint to output mode.
-	DDRB |= 0x10;
-
-	// Set RESET pin to output
-	DDRH |= 0x10;
-
-#elif defined(__AVR_ATmega168__) || defined(__AVR_ATmega328P__)
-
-	// Set MAX_INT and MAX_GPX pins to input mode.
-	DDRB &= ~0x3;
-
-	// Set RESET pin to output
-	DDRD |= 0x80;
-
-	// Set SS pin to output
-	DDRB |= 0x4;
-
-#endif
-*/
+	//Reset pin mode = OUT
+	setRSTPIN();
 
 	// Pull SPI !SS high
-	MAX_SS(1);
+	set_SS(1);
 
 	// Reset
-	MAX_RESET(1);
+	setRST(1);
 }
 
-/**
- * Resets the max3412e. Sets the chip reset bit, SPI configuration is not affected.
- * @return true iff success.
- */
-boolean max3421e_reset(void)
+
+/* Constructor */
+MAX3421E::MAX3421E()
 {
-	uint8_t tmp = 0;
-
-	// Chip reset. This stops the oscillator
-	max3421e_write(MAX_REG_USBCTL, bmCHIPRES);
-
-	// Remove the reset
-	max3421e_write(MAX_REG_USBCTL, 0x00);
-
-	delay(10);
-
-	// Wait until the PLL is stable
-	while (!(max3421e_read(MAX_REG_USBIRQ) & bmOSCOKIRQ))
-	{
-		// Timeout after 256 attempts.
-		tmp++;
-		if (tmp == 0)
-			return (false);
-	}
-
-	// Success.
-	return (true);
+    spi_init();  
+	pinInit();
 }
 
-/**
- * Initialises the max3421e after power-on.
- */
-void max3421e_powerOn(void)
+byte MAX3421E::getVbusState( void )
+{ 
+    return( vbusState );
+}
+/* initialization */
+//void MAX3421E::init()
+//{
+//    /* setup pins */
+//    pinMode( MAX_INT, INPUT);
+//    pinMode( MAX_GPX, INPUT );
+//    pinMode( MAX_SS, OUTPUT );
+//    //pinMode( BPNT_0, OUTPUT );
+//    //pinMode( BPNT_1, OUTPUT );
+//    //digitalWrite( BPNT_0, LOW );
+//    //digitalWrite( BPNT_1, LOW );
+//    Deselect_MAX3421E;              
+//    pinMode( MAX_RESET, OUTPUT );
+//    digitalWrite( MAX_RESET, HIGH );  //release MAX3421E from reset
+//}
+//byte MAX3421E::getVbusState( void )
+//{
+//    return( vbusState );
+//}
+//void MAX3421E::toggle( byte pin )
+//{
+//    digitalWrite( pin, HIGH );
+//    digitalWrite( pin, LOW );
+//}
+/* Single host register write   */
+void MAX3421E::regWr( byte reg, byte val)
 {
-	// Configure full-duplex SPI, interrupt pulse.
-	max3421e_write(MAX_REG_PINCTL, (bmFDUPSPI + bmINTLEVEL + bmGPXB)); //Full-duplex SPI, level interrupt, GPX
-
-	// Stop/start the oscillator.
-	if (max3421e_reset() == false)
-		Serial.print("Error: OSCOKIRQ failed to assert\n");
-
-	// Configure host operation.
-	max3421e_write(MAX_REG_MODE, bmDPPULLDN | bmDMPULLDN | bmHOST | bmSEPIRQ ); // set pull-downs, Host, Separate GPIN IRQ on GPX
-	max3421e_write(MAX_REG_HIEN, bmCONDETIE | bmFRAMEIE ); //connection detection
-
-	// Check if device is connected.
-	max3421e_write(MAX_REG_HCTL, bmSAMPLEBUS ); // sample USB bus
-	while (!(max3421e_read(MAX_REG_HCTL) & bmSAMPLEBUS)); //wait for sample operation to finish
-
-	max3421e_busprobe(); //check if anything is connected
-	max3421e_write(MAX_REG_HIRQ, bmCONDETIRQ ); //clear connection detect interrupt
-
-	// Enable interrupt pin.
-	max3421e_write(MAX_REG_CPUCTL, 0x01);
+      digitalWrite(MAX_SS,LOW);
+      SPDR = ( reg | 0x02 );
+      while(!( SPSR & ( 1 << SPIF )));
+      SPDR = val;
+      while(!( SPSR & ( 1 << SPIF )));
+      digitalWrite(MAX_SS,HIGH);
+      return;
 }
-
-/**
- * Writes a single register.
- *
- * @param reg register address.
- * @param value value to write.
- */
-void max3421e_write(uint8_t reg, uint8_t value)
+/* multiple-byte write */
+/* returns a pointer to a memory position after last written */
+char * MAX3421E::bytesWr( byte reg, byte nbytes, char * data )
 {
-	// Pull slave select low to indicate start of transfer.
-	MAX_SS(0);
-
-	// Transfer command byte, 0x02 indicates write.
-	SPDR = (reg | 0x02);
-	while (!(SPSR & (1 << SPIF)));
-
-	// Transfer value byte.
-	SPDR = value;
-	while (!(SPSR & (1 << SPIF)));
-
-	// Pull slave select high to indicate end of transfer.
-	MAX_SS(1);
-
-	return;
+    digitalWrite(MAX_SS,LOW);
+    SPDR = ( reg | 0x02 );
+    while( nbytes-- ) {
+      while(!( SPSR & ( 1 << SPIF )));  //check if previous byte was sent
+      SPDR = ( *data );               // send next data byte
+      data++;                         // advance data pointer
+    }
+    while(!( SPSR & ( 1 << SPIF )));
+    digitalWrite(MAX_SS,HIGH);
+    return( data );
 }
-
-/**
- * Writes multiple bytes to a register.
- * @param reg register address.
- * @param count number of bytes to write.
- * @param vaues input values.
- * @return a pointer to values, incremented by the number of bytes written (values + length).
- */
-uint8_t * max3421e_writeMultiple(uint8_t reg, uint8_t count, uint8_t * values)
+/* GPIO write. GPIO byte is split between 2 registers, so two writes are needed to write one byte */
+/* GPOUT bits are in the low nibble. 0-3 in IOPINS1, 4-7 in IOPINS2 */
+/* upper 4 bits of IOPINS1, IOPINS2 are read-only, so no masking is necessary */
+void MAX3421E::gpioWr( byte val )
 {
-	// Pull slave select low to indicate start of transfer.
-	MAX_SS(0);
-
-	// Transfer command byte, 0x02 indicates write.
-	SPDR = (reg | 0x02);
-	while (!(SPSR & (1 << SPIF)));
-
-	// Transfer values.
-	while (count--)
-	{
-		// Send next value byte.
-		SPDR = (*values);
-		while (!(SPSR & (1 << SPIF)));
-
-		values++;
-	}
-
-	// Pull slave select high to indicate end of transfer.
-	MAX_SS(1);
-
-	return (values);
+    regWr( rIOPINS1, val );
+    val = val >>4;
+    regWr( rIOPINS2, val );
+    
+    return;     
 }
-
-/**
- * Reads a single register.
- *
- * @param reg register address.
- * @return result value.
- */
-uint8_t max3421e_read(uint8_t reg)
+/* Single host register read        */
+byte MAX3421E::regRd( byte reg )    
 {
-	// Pull slave-select high to initiate transfer.
-	MAX_SS(0);
-
-	// Send a command byte containing the register number.
-	SPDR = reg;
-	while (!(SPSR & (1 << SPIF)));
-
-	// Send an empty byte while reading.
-	SPDR = 0;
-	while (!(SPSR & (1 << SPIF)));
-
-	// Pull slave-select low to signal transfer complete.
-	MAX_SS(1);
-
-	// Return result byte.
-	return (SPDR);
+  byte tmp;
+    digitalWrite(MAX_SS,LOW);
+    SPDR = reg;
+    while(!( SPSR & ( 1 << SPIF )));
+    SPDR = 0; //send empty byte
+    while(!( SPSR & ( 1 << SPIF )));
+    digitalWrite(MAX_SS,HIGH); 
+    return( SPDR );
 }
-
-/**
- * Reads multiple bytes from a register.
- *
- * @param reg register to read from.
- * @param count number of bytes to read.
- * @param values target buffer.
- * @return pointer to the input buffer + count.
- */
-uint8_t * max3421e_readMultiple(uint8_t reg, uint8_t count, uint8_t * values)
+/* multiple-bytes register read                             */
+/* returns a pointer to a memory position after last read   */
+char * MAX3421E::bytesRd ( byte reg, byte nbytes, char  * data )
 {
-	// Pull slave-select high to initiate transfer.
-	MAX_SS(0);
-
-	// Send a command byte containing the register number.
-	SPDR = reg;
-	while (!(SPSR & (1 << SPIF))); //wait
-
-	// Read [count] bytes.
-	while (count--)
-	{
-		// Send empty byte while reading.
-		SPDR = 0;
-		while (!(SPSR & (1 << SPIF)));
-
-		*values = SPDR;
-		values++;
-	}
-
-	// Pull slave-select low to signal transfer complete.
-	MAX_SS(1);
-
-	// Return the byte array + count.
-	return (values);
+    digitalWrite(MAX_SS,LOW);
+    SPDR = reg;      
+    while(!( SPSR & ( 1 << SPIF )));    //wait
+    while( nbytes ) {
+      SPDR = 0; //send empty byte
+      nbytes--;
+      while(!( SPSR & ( 1 << SPIF )));
+      *data = SPDR;
+      data++;
+    }
+    digitalWrite(MAX_SS,HIGH);
+    return( data );   
 }
-
-/**
- * @return the status of Vbus.
- */
-uint8_t max3421e_getVbusState()
+/* GPIO read. See gpioWr for explanation */
+/* GPIN pins are in high nibbles of IOPINS1, IOPINS2    */
+byte MAX3421E::gpioRd( void )
 {
-	return vbusState;
+ byte tmpbyte = 0;
+    tmpbyte = regRd( rIOPINS2 );            //pins 4-7
+    tmpbyte &= 0xf0;                        //clean lower nibble
+    tmpbyte |= ( regRd( rIOPINS1 ) >>4 ) ;  //shift low bits and OR with upper from previous operation. Upper nibble zeroes during shift, at least with this compiler
+    return( tmpbyte );
 }
-
-/**
- * Probes the bus to determine device presence and speed, and switches host to this speed.
- */
-void max3421e_busprobe(void)
+/* reset MAX3421E using chip reset bit. SPI configuration is not affected   */
+boolean MAX3421E::reset()
 {
-	uint8_t bus_sample;
-	bus_sample = max3421e_read(MAX_REG_HRSL); //Get J,K status
-	bus_sample &= (bmJSTATUS | bmKSTATUS); //zero the rest of the uint8_t
-
-	switch (bus_sample)
-	{
-	//start full-speed or low-speed host
-	case (bmJSTATUS):
-		if ((max3421e_read(MAX_REG_MODE) & bmLOWSPEED) == 0)
-		{
-			max3421e_write(MAX_REG_MODE, MODE_FS_HOST ); //start full-speed host
-			vbusState = FSHOST;
-		} else
-		{
-			max3421e_write(MAX_REG_MODE, MODE_LS_HOST); //start low-speed host
-			vbusState = LSHOST;
-		}
-		break;
-	case (bmKSTATUS):
-		if ((max3421e_read(MAX_REG_MODE) & bmLOWSPEED) == 0)
-		{
-			max3421e_write(MAX_REG_MODE, MODE_LS_HOST ); //start low-speed host
-			vbusState = LSHOST;
-		} else
-		{
-			max3421e_write(MAX_REG_MODE, MODE_FS_HOST ); //start full-speed host
-			vbusState = FSHOST;
-		}
-		break;
-	case (bmSE1): //illegal state
-		vbusState = SE1;
-		break;
-	case (bmSE0): //disconnected state
-		vbusState = SE0;
-		break;
-	}
+  byte tmp = 0;
+    regWr( rUSBCTL, bmCHIPRES );                        //Chip reset. This stops the oscillator
+    regWr( rUSBCTL, 0x00 );                             //Remove the reset
+    while(!(regRd( rUSBIRQ ) & bmOSCOKIRQ )) {          //wait until the PLL is stable
+        tmp++;                                          //timeout after 256 attempts
+        if( tmp == 0 ) {
+            return( false );
+        }
+    }
+    return( true );
 }
-
-/**
- * MAX3421 state change task and interrupt handler.
- * @return error code or 0 if successful.
- */
-uint8_t max3421e_poll(void)
+/* turn USB power on/off                                                */
+/* does nothing, returns TRUE. Left for compatibility with old sketches               */
+/* will be deleted eventually                                           */
+///* ON pin of VBUS switch (MAX4793 or similar) is connected to GPOUT7    */
+///* OVERLOAD pin of Vbus switch is connected to GPIN7                    */
+///* OVERLOAD state low. NO OVERLOAD or VBUS OFF state high.              */
+boolean MAX3421E::vbusPwr ( boolean action )
 {
-	uint8_t rcode = 0;
-
-	// Check interrupt.
-	if (MAX_INT() == 0)
-		rcode = max3421e_interruptHandler();
-
-	if (MAX_GPX() == 0)
-		max3421e_gpxInterruptHandler();
-
-	return (rcode);
+//  byte tmp;
+//    tmp = regRd( rIOPINS2 );                //copy of IOPINS2
+//    if( action ) {                          //turn on by setting GPOUT7
+//        tmp |= bmGPOUT7;
+//    }
+//    else {                                  //turn off by clearing GPOUT7
+//        tmp &= ~bmGPOUT7;
+//    }
+//    regWr( rIOPINS2, tmp );                 //send GPOUT7
+//    if( action ) {
+//        delay( 60 );
+//    }
+//    if (( regRd( rIOPINS2 ) & bmGPIN7 ) == 0 ) {     // check if overload is present. MAX4793 /FLAG ( pin 4 ) goes low if overload
+//        return( false );
+//    }                      
+    return( true );                                             // power on/off successful                       
 }
-
-/**
- * Interrupt handler.
- */
-uint8_t max3421e_interruptHandler(void)
+/* probe bus to determine device presense and speed and switch host to this speed */
+void MAX3421E::busprobe( void )
 {
-	uint8_t interruptStatus;
-	uint8_t HIRQ_sendback = 0x00;
-
-	// Determine interrupt source.
-	interruptStatus = max3421e_read(MAX_REG_HIRQ);
-
-	if (interruptStatus & bmFRAMEIRQ)
-	{
-		//->1ms SOF interrupt handler
-		HIRQ_sendback |= bmFRAMEIRQ;
-	}
-
-	if (interruptStatus & bmCONDETIRQ)
-	{
-		max3421e_busprobe();
-
-		HIRQ_sendback |= bmCONDETIRQ;
-	}
-
-	// End HIRQ interrupts handling, clear serviced IRQs
-	max3421e_write(MAX_REG_HIRQ, HIRQ_sendback);
-
-	return (HIRQ_sendback);
+ byte bus_sample;
+    bus_sample = regRd( rHRSL );            //Get J,K status
+    bus_sample &= ( bmJSTATUS|bmKSTATUS );      //zero the rest of the byte
+    switch( bus_sample ) {                          //start full-speed or low-speed host 
+        case( bmJSTATUS ):
+            if(( regRd( rMODE ) & bmLOWSPEED ) == 0 ) {
+                regWr( rMODE, MODE_FS_HOST );       //start full-speed host
+                vbusState = FSHOST;
+            }
+            else {
+                regWr( rMODE, MODE_LS_HOST);        //start low-speed host
+                vbusState = LSHOST;
+            }
+            break;
+        case( bmKSTATUS ):
+            if(( regRd( rMODE ) & bmLOWSPEED ) == 0 ) {
+                regWr( rMODE, MODE_LS_HOST );       //start low-speed host
+                vbusState = LSHOST;
+            }
+            else {
+                regWr( rMODE, MODE_FS_HOST );       //start full-speed host
+                vbusState = FSHOST;
+            }
+            break;
+        case( bmSE1 ):              //illegal state
+            vbusState = SE1;
+            break;
+        case( bmSE0 ):              //disconnected state
+		regWr( rMODE, bmDPPULLDN|bmDMPULLDN|bmHOST|bmSEPIRQ);
+            vbusState = SE0;
+            break;
+        }//end switch( bus_sample )
 }
-
-/**
- * GPX interrupt handler
- */
-uint8_t max3421e_gpxInterruptHandler(void)
+/* MAX3421E initialization after power-on   */
+void MAX3421E::powerOn()
 {
-	//read GPIN IRQ register
-	uint8_t interruptStatus = max3421e_read(MAX_REG_GPINIRQ);
+    /* Configure full-duplex SPI, interrupt pulse   */
+    regWr( rPINCTL,( bmFDUPSPI + bmINTLEVEL + bmGPXB ));    //Full-duplex SPI, level interrupt, GPX
+    if( reset() == false ) {                                //stop/start the oscillator
+        Serial.println("Error: OSCOKIRQ failed to assert");
+    }
 
-	//    if( GPINIRQ & bmGPINIRQ7 ) {            //vbus overload
-	//        vbusPwr( OFF );                     //attempt powercycle
-	//        delay( 1000 );
-	//        vbusPwr( ON );
-	//        regWr( rGPINIRQ, bmGPINIRQ7 );
-	//    }
-
-	return (interruptStatus);
+    /* configure host operation */
+    regWr( rMODE, bmDPPULLDN|bmDMPULLDN|bmHOST|bmSEPIRQ );      // set pull-downs, Host, Separate GPIN IRQ on GPX
+    regWr( rHIEN, bmCONDETIE|bmFRAMEIE );                                             //connection detection
+    /* check if device is connected */
+    regWr( rHCTL,bmSAMPLEBUS );                                             // sample USB bus
+    while(!(regRd( rHCTL ) & bmSAMPLEBUS ));                                //wait for sample operation to finish
+    busprobe();                                                             //check if anything is connected
+    regWr( rHIRQ, bmCONDETIRQ );                                            //clear connection detect interrupt                 
+    regWr( rCPUCTL, 0x01 );                                                 //enable interrupt pin
+}
+/* MAX3421 state change task and interrupt handler */
+byte MAX3421E::Task( void )
+{
+ byte rcode = 0;
+ byte pinvalue;
+    //Serial.print("Vbus state: ");
+    //Serial.println( vbusState, HEX );
+ pinvalue = readINT();
+ if( pinvalue  == LOW ) {
+        rcode = IntHandler();
+    }
+    pinvalue = readGPX();
+    if( pinvalue == LOW ) {
+        GpxHandler();
+    }
+//    usbSM();                                //USB state machine                            
+    return( rcode );   
+}   
+byte MAX3421E::IntHandler()
+{
+ byte HIRQ;
+ byte HIRQ_sendback = 0x00;
+    HIRQ = regRd( rHIRQ );                  //determine interrupt source
+    //if( HIRQ & bmFRAMEIRQ ) {               //->1ms SOF interrupt handler
+    //    HIRQ_sendback |= bmFRAMEIRQ;
+    //}//end FRAMEIRQ handling
+    if( HIRQ & bmCONDETIRQ ) {
+        busprobe();
+        HIRQ_sendback |= bmCONDETIRQ;
+    }
+    /* End HIRQ interrupts handling, clear serviced IRQs    */
+    regWr( rHIRQ, HIRQ_sendback );
+    return( HIRQ_sendback );
+}
+byte MAX3421E::GpxHandler()
+{
+ byte GPINIRQ = regRd( rGPINIRQ );          //read GPIN IRQ register
+//    if( GPINIRQ & bmGPINIRQ7 ) {            //vbus overload
+//        vbusPwr( OFF );                     //attempt powercycle
+//        delay( 1000 );
+//        vbusPwr( ON );
+//        regWr( rGPINIRQ, bmGPINIRQ7 );
+//    }       
+    return( GPINIRQ );
 }
 
+//void MAX3421E::usbSM( void )                //USB state machine
+//{
+//    
+//
+//}
