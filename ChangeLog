@@ -1,3 +1,19 @@
+2012-05-03  Yuuichi Akagawa <Yuuichi.Akagawa@gmail.com>
+
+	* Fix for the Arduino IDE version compatibility.
+	- Adb/examples/Logcat/Logcat.pde
+	- Adb/examples/Shell/Shell.pde
+
+2012-04-30  Yuuichi Akagawa <Yuuichi.Akagawa@gmail.com>
+
+	* Fix for the Arduino IDE version compatibility and Mega ADK support.
+	- Adb/Adb.h
+	- Adb/Usb.cpp
+	- Adb/Usb.h
+	- Adb/max3421e.cpp
+	- Adb/max3421e.h
+	- Adb/max3421e_constants.h
+
 2012-03-14  Yuuichi Akagawa <Yuuichi.Akagawa@gmail.com>
 
 	* Unite USB_Host_Shield codes.

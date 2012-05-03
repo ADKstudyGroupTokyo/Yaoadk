@@ -10,7 +10,8 @@ void adbEventHandler(Connection * connection, adb_eventType event, uint16_t leng
 
   if (event == ADB_CONNECTION_RECEIVE)
     for (i=0; i<length; i++)
-      Serial.print(data[i]);
+//      Serial.print(data[i]);
+      Serial.write(data[i]);
 
 }
 
