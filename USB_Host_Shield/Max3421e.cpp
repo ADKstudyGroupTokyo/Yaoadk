@@ -14,11 +14,14 @@
   limitations under the License.
 
   Changes: 
-    Fix for the Arduino IDE version compatibility.
+    *Fix for the Arduino IDE version compatibility.
+    *Fix for the Arduino Leonardo support.
     Supoort ADK boards
       Google ADK compatible boards(RT-ADK, Arduino MegaADK)
       Duemilanove/UNO + Sparkfun USB Host Shield(DEV-09947)
+      Duemilanove/UNO + USB Host Shield 2.0
       Pro mini + USB Host Shield for Arduino Pro Mini
+      Leonardo + USB Host Shield 2.0
 
  -----------------------------------------------------------------------------------
  * Copyright 2009-2011 Oleg Mazurov, Circuits At Home, http://www.circuitsathome.com
@@ -64,6 +67,7 @@ void MAX3421E::pinInit(void)
 	setRSTPIN();
 
 	// Pull SPI !SS high
+	setSSPIN();
 	set_SS(1);
 
 	// Reset
@@ -109,19 +113,19 @@ byte MAX3421E::getVbusState( void )
 /* Single host register write   */
 void MAX3421E::regWr( byte reg, byte val)
 {
-      digitalWrite(MAX_SS,LOW);
+      set_SS(LOW);
       SPDR = ( reg | 0x02 );
       while(!( SPSR & ( 1 << SPIF )));
       SPDR = val;
       while(!( SPSR & ( 1 << SPIF )));
-      digitalWrite(MAX_SS,HIGH);
+      set_SS(HIGH);
       return;
 }
 /* multiple-byte write */
 /* returns a pointer to a memory position after last written */
 char * MAX3421E::bytesWr( byte reg, byte nbytes, char * data )
 {
-    digitalWrite(MAX_SS,LOW);
+    set_SS(LOW);
     SPDR = ( reg | 0x02 );
     while( nbytes-- ) {
       while(!( SPSR & ( 1 << SPIF )));  //check if previous byte was sent
@@ -129,7 +133,7 @@ char * MAX3421E::bytesWr( byte reg, byte nbytes, char * data )
       data++;                         // advance data pointer
     }
     while(!( SPSR & ( 1 << SPIF )));
-    digitalWrite(MAX_SS,HIGH);
+    set_SS(HIGH);
     return( data );
 }
 /* GPIO write. GPIO byte is split between 2 registers, so two writes are needed to write one byte */
@@ -147,19 +151,19 @@ void MAX3421E::gpioWr( byte val )
 byte MAX3421E::regRd( byte reg )    
 {
   byte tmp;
-    digitalWrite(MAX_SS,LOW);
+    set_SS(LOW);
     SPDR = reg;
     while(!( SPSR & ( 1 << SPIF )));
     SPDR = 0; //send empty byte
     while(!( SPSR & ( 1 << SPIF )));
-    digitalWrite(MAX_SS,HIGH); 
+    set_SS(HIGH); 
     return( SPDR );
 }
 /* multiple-bytes register read                             */
 /* returns a pointer to a memory position after last read   */
 char * MAX3421E::bytesRd ( byte reg, byte nbytes, char  * data )
 {
-    digitalWrite(MAX_SS,LOW);
+    set_SS(LOW);
     SPDR = reg;      
     while(!( SPSR & ( 1 << SPIF )));    //wait
     while( nbytes ) {
@@ -169,7 +173,7 @@ char * MAX3421E::bytesRd ( byte reg, byte nbytes, char  * data )
       *data = SPDR;
       data++;
     }
-    digitalWrite(MAX_SS,HIGH);
+    set_SS(HIGH);
     return( data );   
 }
 /* GPIO read. See gpioWr for explanation */

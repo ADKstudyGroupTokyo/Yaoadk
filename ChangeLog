@@ -1,3 +1,13 @@
+2012-06-05  Yuuichi Akagawa <Yuuichi.Akagawa@gmail.com>
+
+	* Arduino Leonardo support.
+	- Adb/max3421e.cpp
+	- Adb/max3421e.h
+	- Adb/max3421e_constants.h
+	- USB_Host_Shield/Max3421e.cpp
+	- USB_Host_Shield/Max3421e.h
+	- USB_Host_Shield/Max3421e_constants.h
+
 2012-05-03  Yuuichi Akagawa <Yuuichi.Akagawa@gmail.com>
 
 	* Fix for the Arduino IDE version compatibility.

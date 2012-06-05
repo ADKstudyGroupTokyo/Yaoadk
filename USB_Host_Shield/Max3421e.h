@@ -14,11 +14,14 @@
   limitations under the License.
 
   Changes: 
-    Fix for the Arduino IDE version compatibility.
+    *Fix for the Arduino IDE version compatibility.
+    *Fix for the Arduino Leonardo support.
     Supoort ADK boards
       Google ADK compatible boards(RT-ADK, Arduino MegaADK)
       Duemilanove/UNO + Sparkfun USB Host Shield(DEV-09947)
+      Duemilanove/UNO + USB Host Shield 2.0
       Pro mini + USB Host Shield for Arduino Pro Mini
+      Leonardo + USB Host Shield 2.0
 
  -----------------------------------------------------------------------------------
  * Copyright 2009-2011 Oleg Mazurov, Circuits At Home, http://www.circuitsathome.com
@@ -60,6 +63,7 @@
 #include "Arduino.h"
 #else
 #include "WProgram.h"
+#include "pins_arduino.h"
 #endif
 #include "Max3421e_constants.h"
 

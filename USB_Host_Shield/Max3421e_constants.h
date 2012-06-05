@@ -14,11 +14,14 @@
   limitations under the License.
 
   Changes: 
-    Fix for the Arduino IDE version compatibility.
+    *Fix for the Arduino IDE version compatibility.
+    *Fix for the Arduino Leonardo support.
     Supoort ADK boards
       Google ADK compatible boards(RT-ADK, Arduino MegaADK)
       Duemilanove/UNO + Sparkfun USB Host Shield(DEV-09947)
+      Duemilanove/UNO + USB Host Shield 2.0
       Pro mini + USB Host Shield for Arduino Pro Mini
+      Leonardo + USB Host Shield 2.0
 
  -----------------------------------------------------------------------------------
  * Copyright 2009-2011 Oleg Mazurov, Circuits At Home, http://www.circuitsathome.com
@@ -55,7 +58,13 @@
 #define _MAX3421Econstants_h_
 
 /* SPI pins for diffrent Arduinos */
+#define SCK_PIN   SCK
+#define MISO_PIN  MISO
+#define MOSI_PIN  MOSI
+#define SS_PIN    SS
+
 #define setRSTPIN() pinMode( MAX_RESET, OUTPUT );
+#define setSSPIN() pinMode( MAX_SS, OUTPUT );
 #define set_SS(x) digitalWrite(MAX_SS, x)
 #define readINT() digitalRead(MAX_INT)
 #define readGPX() (LOW)
@@ -64,12 +73,8 @@
 // for the ADK reference board
 #define ADK_REF_BOARD
 
-#if defined(__AVR_ATmega1280__) || (__AVR_ATmega2560__)
-  #define SCK_PIN   52
-  #define MISO_PIN  50
-  #define MOSI_PIN  51
-  #define SS_PIN    53
-
+// Arduino Mega based boards
+#if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
   #define MAX_SS    SS_PIN
 
   #ifdef ADK_REF_BOARD
@@ -78,22 +83,16 @@
     #define MAX_RESET 7
 
     #define setRSTPIN() (DDRJ |= 0x04)
-    #define set_SS(x) digitalWrite(MAX_SS, x)
     #define readINT() ((PORTE & 0x40) >> 6)
     #define setRST(x) { if (x) PORTJ |= 0x04; else PORTJ &= ~0x04; }
   #else
+    // You must change to your port assign.
     #define MAX_INT   48
     #define MAX_GPX   49
     #define MAX_RESET 46
   #endif
-#endif
-#if  defined(__AVR_ATmega168__) || defined(__AVR_ATmega328P__)
-  #define SCK_PIN   13
-  #define MISO_PIN  12
-  #define MOSI_PIN  11
-  #define SS_PIN    10
-
-  #define MAX_SS    SS_PIN
+#else	// Various Arduino UNO based boards and Leonardo
+  #define MAX_SS    10
   #define MAX_INT   9
   #define MAX_GPX   8
   #define MAX_RESET 7

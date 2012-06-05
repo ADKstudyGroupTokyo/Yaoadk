@@ -28,17 +28,17 @@ Original copyright
 
 -----------------------------------------------------------------
 
-Yaoadk - adk/microbridgeのためのarduinoライブラリ集
+Yaoadk - ADK/MicroBridgeのためのArduinoライブラリ集
 ====================================================
 
 Androidとの接続にかかわる様々な 八百万（やおろず）の問題を解決できるライブラリ集 にしていこうと考えています。
 
-詳細な解説については[wiki](https://github.com/ADKstudyGroupTokyo/Yaoadk/wiki/Yaoadk,-Yet-Another-Open-Accessory-Development-Kit "wiki)を参照ください。
+詳細な解説については[Yaoadk,-Yet-Another-Open-Accessory-Development-Kit wiki][wiki]を参照ください。
 
 免責事項
 --------
 本ソフトウェアは無保証です。
-ADK Study Group Tokyoは本ソフトウェアの利用によって生じた結果に対して一切の責任を負いません。利用者の自己責任のもとご利用ください。
+ADK勉強会(東京)は本ソフトウェアの利用によって生じた結果に対して一切の責任を負いません。利用者の自己責任のもとご利用ください。
 
 著作権について
 --------------
@@ -47,3 +47,4 @@ Copyright &copy; 2012 ADK Study Group Tokyo
 Licensed under the [Apache License, Version 2.0][Apache]
 
 [Apache]: http://www.apache.org/licenses/LICENSE-2.0
+[wiki]: https://github.com/ADKstudyGroupTokyo/Yaoadk/wiki/Yaoadk
