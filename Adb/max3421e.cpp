@@ -193,6 +193,7 @@ boolean MAX3421E::reset()
     regWr( rUSBCTL, bmCHIPRES );                        //Chip reset. This stops the oscillator
     regWr( rUSBCTL, 0x00 );                             //Remove the reset
     while(!(regRd( rUSBIRQ ) & bmOSCOKIRQ )) {          //wait until the PLL is stable
+        delay(1);                                       //wait 1ms
         tmp++;                                          //timeout after 256 attempts
         if( tmp == 0 ) {
             return( false );

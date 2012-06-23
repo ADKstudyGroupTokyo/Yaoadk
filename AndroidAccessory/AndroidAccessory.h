@@ -17,10 +17,12 @@
 #ifndef __AndroidAccessory_h__
 #define __AndroidAccessory_h__
 
-//Kenichi Yoshida patch for Arduino 1.0
-//2012/01/31
-//#include "WProgram.h"
+#if defined(ARDUINO) && ARDUINO >= 100
 #include "Arduino.h"
+#else
+#include "WProgram.h"
+#endif
+
 
 class AndroidAccessory {
 private:

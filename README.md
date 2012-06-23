@@ -47,4 +47,4 @@ Copyright &copy; 2012 ADK Study Group Tokyo
 Licensed under the [Apache License, Version 2.0][Apache]
 
 [Apache]: http://www.apache.org/licenses/LICENSE-2.0
-[wiki]: https://github.com/ADKstudyGroupTokyo/Yaoadk/wiki/Yaoadk
+[wiki]: https://github.com/ADKstudyGroupTokyo/Yaoadk/wiki/Yaoadk,-Yet-Another-Open-Accessory-Development-Kit
