@@ -189,12 +189,11 @@ byte MAX3421E::gpioRd( void )
 /* reset MAX3421E using chip reset bit. SPI configuration is not affected   */
 boolean MAX3421E::reset()
 {
-  byte tmp = 0;
+  word tmp = 0;
     regWr( rUSBCTL, bmCHIPRES );                        //Chip reset. This stops the oscillator
     regWr( rUSBCTL, 0x00 );                             //Remove the reset
     while(!(regRd( rUSBIRQ ) & bmOSCOKIRQ )) {          //wait until the PLL is stable
-        delay(1);                                       //wait 1ms
-        tmp++;                                          //timeout after 256 attempts
+        tmp++;                                          //timeout after 65536 attempts
         if( tmp == 0 ) {
             return( false );
         }

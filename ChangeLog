@@ -1,3 +1,8 @@
+2012-06-25  Yuuichi Akagawa <Yuuichi.Akagawa@gmail.com>
+        * Refix "Error: OSCOKIRQ failed to assert" on Mega ADK.  change counter size grow up to 16 bit.
+	- USB_Host_Shield/Max3421e.cpp
+	- Adb/max3421e.cpp
+
 2012-06-23  Yuuichi Akagawa <Yuuichi.Akagawa@gmail.com>
 
 	* ADK_release_20120606
@@ -5,6 +10,7 @@
         - AndroidAccessory/AndroidAccessory.h
 
         * Fix "Error: OSCOKIRQ failed to assert" on Mega ADK
+	- USB_Host_Shield/Max3421e.cpp
 	- Adb/max3421e.cpp
 
 2012-06-05  Yuuichi Akagawa <Yuuichi.Akagawa@gmail.com>
