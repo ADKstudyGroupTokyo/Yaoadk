@@ -1,3 +1,8 @@
+2012-08-25  Yuuichi Akagawa <Yuuichi.Akagawa@gmail.com>
+
+        * Fix for Adb USB bug (Cannot connect when configuration descriptor size is over 64 bytes)
+        - Adb/usp.cpp
+
 2012-06-25  Yuuichi Akagawa <Yuuichi.Akagawa@gmail.com>
         * Refix "Error: OSCOKIRQ failed to assert" on Mega ADK.  change counter size grow up to 16 bit.
 	- USB_Host_Shield/Max3421e.cpp

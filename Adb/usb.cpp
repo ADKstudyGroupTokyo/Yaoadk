@@ -460,9 +460,9 @@ int USB::read(usb_device * device, usb_endpoint * endpoint, uint16_t length, uin
 
 		// Obtain the number of bytes in FIFO.
 		bytesRead = max3421e.regRd(rRCVBC);
-                char *cdata = (char *)data;
+
 		// Read the data from the FIFO.
-		cdata = max3421e.bytesRd(rRCVFIFO, bytesRead, cdata);
+		data = (unsigned char*)max3421e.bytesRd(rRCVFIFO, bytesRead, (char*)data);
 
 		// Clear the interrupt to free the buffer.
 		max3421e.regWr(rHIRQ, bmRCVDAVIRQ);
